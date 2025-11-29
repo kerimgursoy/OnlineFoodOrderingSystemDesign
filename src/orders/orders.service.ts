@@ -3,13 +3,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from './order.entity';
 import { ClientProxy } from '@nestjs/microservices';
-
+//OrdersService handles CRUD operations and microservice communication
 @Injectable()
 export class OrdersService {
   constructor(
+    //injects TypeORM repository for database interactions
     @InjectRepository(Order)
     private ordersRepo: Repository<Order>,
 
+    //injects the RabbitMQ ClientProxy for event publishing
     @Inject('ORDERS_PUBLISHER')
     private client: ClientProxy,
   ) {}
@@ -27,6 +29,7 @@ export class OrdersService {
   }
 
   async create(data: Partial<Order>) {
+    // creates a new order entity and sets the initial status to pending
     const order = this.ordersRepo.create({
       ...data,
       status: 'PENDING',
@@ -34,6 +37,7 @@ export class OrdersService {
     const saved = await this.ordersRepo.save(order);
 
     // 🔴 Publish event to RabbitMQ
+    //delivery microservice will consume this event
     void this.client.emit('order_created', {
       id: saved.id,
       customerName: saved.customerName,
